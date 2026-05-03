@@ -9,6 +9,7 @@ st.set_page_config(page_title="Surgical Risk Predictor", layout="wide")
 # 1. LOAD THE BRAIN
 @st.cache_resource
 def load_assets():
+    # Note: Ensure these files exist in your directory
     models = joblib.load('surgery_models.pkl')
     le_dict = joblib.load('encoders.pkl')
     ui_data = joblib.load('ui_data.pkl')
@@ -24,22 +25,42 @@ st.markdown("---")
 st.sidebar.header("Patient Clinical Profile")
 
 with st.sidebar:
+    # Existing Demographic Inputs
     age = st.number_input("Age", 1, 100, 55)
     sex = st.selectbox("Sex", ["MALE", "FEMALE"])
     height = st.number_input("Height (cm)", 100, 250, 165)
     weight = st.number_input("Weight (kg)", 30, 200, 70)
     
-    # Auto-calculate BMI
     bmi = weight / ((height/100)**2)
     st.info(f"Calculated BMI: {bmi:.1f}")
     
+    st.markdown("### Comorbidities")
     diabetes = st.selectbox("Diabetes", ["NO", "ORAL", "INSULIN"])
     htn = st.selectbox("Hypertension (Medication)", ["NO", "YES"])
     chf = st.selectbox("Congestive Heart Failure", ["NO", "YES"])
     copd = st.selectbox("History of Severe COPD", ["NO", "YES"])
     smoker = st.selectbox("Current Smoker (within 1 yr)", ["NO", "YES"])
     dyspnea = st.selectbox("Dyspnea Level", ["NO", "On Exertion", "At Rest"])
-    
+
+    # --- NEW LAB INPUTS (Visual Only) ---
+    st.markdown("### Laboratory Values")
+    col_l1, col_l2 = st.columns(2)
+    with col_l1:
+        hb = st.number_input("Hb (g/dL)", value=12.0)
+        tlc = st.number_input("TLC (cells/mm³)", value=7000)
+        plt = st.number_input("Plt (10³/µL)", value=250)
+        na = st.number_input("Na+ (mEq/L)", value=140)
+        k = st.number_input("K+ (mEq/L)", value=4.0)
+        urea = st.number_input("Urea (mg/dL)", value=30)
+    with col_l2:
+        creat = st.number_input("Creat (mg/dL)", value=1.0)
+        tbili = st.number_input("T. Billirubin (mg/dL)", value=0.8)
+        alp = st.number_input("ALP (U/L)", value=100)
+        sgot = st.number_input("SGOT (U/L)", value=25)
+        sgpt = st.number_input("SGPT (U/L)", value=25)
+        tprot = st.number_input("T. Proteins (g/dL)", value=7.0)
+        alb = st.number_input("Albumin (g/dL)", value=4.0)
+
     st.sidebar.header("Surgical Details")
     diagnosis = st.selectbox("Diagnosis", ui_data['diagnoses'])
     surgery = st.selectbox("Planned Surgery", ui_data['surgeries'])
@@ -48,7 +69,7 @@ with st.sidebar:
 
 # 3. PREDICTION LOGIC
 if st.button("Generate Risk Assessment"):
-    # Prepare input data dictionary
+    # Current features only for the model
     raw_input = {
         'AGE_clean': age,
         'SEX': sex,
@@ -71,34 +92,40 @@ if st.button("Generate Risk Assessment"):
         try:
             encoded_input[col] = le.transform(encoded_input[col].astype(str))
         except:
-            encoded_input[col] = 0 # Default if label unknown
+            encoded_input[col] = 0 
 
-    # Calculate percentages for all 13 complications
+    # Calculate percentages
     results = {}
     for comp_name, model in models.items():
+        # RENAME LOGIC
+        display_name = "Complication Rate" if comp_name == "Any complication" else comp_name
+        
+        # REMOVE Serious Complication
+        if comp_name == "Serious complication":
+            continue
+            
         probs = model.predict_proba(encoded_input)[0]
         classes = model.classes_
         p_dict = dict(zip(classes, probs))
         
-        # Weighted Index Logic: P(Avg)*50 + P(Above)*100
         score = p_dict.get(1, 0) * 50 + p_dict.get(2, 0) * 100
-        results[comp_name] = score
+        results[display_name] = score
 
     # 4. DISPLAY RESULTS
     st.subheader("Critical Risk Summary")
     c1, c2, c3 = st.columns(3)
     
-    # Top Metrics
-    c1.metric("Serious Complication", f"{results['Serious complication']:.1f}%")
-    c2.metric("Cardiac Risk", f"{results['Cardiac complication']:.1f}%")
-    c3.metric("Mortality Risk", f"{results['Death']:.1f}%")
+    # Updated logic for top metrics
+    c1.metric("Complication Rate", f"{results.get('Complication Rate', 0):.1f}%")
+    c2.metric("Cardiac Risk", f"{results.get('Cardiac complication', 0):.1f}%")
+    c3.metric("Mortality Risk", f"{results.get('Death', 0):.1f}%")
 
     st.markdown("---")
     st.subheader("Detailed Complication Breakdown")
     
-    # Grid of other complications
     cols = st.columns(3)
-    other_comps = [c for c in results.keys() if c not in ['Serious complication', 'Cardiac complication', 'Death']]
+    # Filter out the top metrics for the grid
+    other_comps = [c for c in results.keys() if c not in ['Complication Rate', 'Cardiac complication', 'Death']]
     
     for i, comp in enumerate(other_comps):
         val = results[comp]

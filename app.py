@@ -52,13 +52,14 @@ with st.sidebar:
         na = st.number_input("Na+ (mEq/L)", value=140)
         k = st.number_input("K+ (mEq/L)", value=4.0)
         urea = st.number_input("Urea (mg/dL)", value=30)
-        ph_lactate = st.number_input("pH Lactate (mmol/L)", min_value=0.0, max_value=30.0, value=1.0, step=0.1, format="%.1f")
+        ph = st.number_input("Blood pH", min_value=6.50, max_value=8.00, value=7.40, step=0.01, format="%.2f")
     with col_l2:
         creat = st.number_input("Creat (mg/dL)", value=1.0)
         tbili = st.number_input("T. Billirubin (mg/dL)", value=0.8)
         alp = st.number_input("ALP (U/L)", value=100)
         sgot = st.number_input("SGOT (U/L)", value=25)
         sgpt = st.number_input("SGPT (U/L)", value=25)
+        lactate = st.number_input("Lactate (mmol/L)", min_value=0.0, max_value=20.0, value=1.0, step=0.1, format="%.1f")
         tprot = st.number_input("T. Proteins (g/dL)", value=7.0)
         alb = st.number_input("Albumin (g/dL)", value=4.0)
 
